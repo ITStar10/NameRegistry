@@ -1,46 +1,51 @@
-# Advanced Sample Hardhat Project
+# Setup Environment
+Assumed : node & npm are already installed on your OS
+Note : All commands below should be run in terminal(Ubuntu) or command prompt(Windows).
 
-This project demonstrates an advanced Hardhat use case, integrating other tools commonly used alongside Hardhat in the ecosystem.
+install yarn :
+    npm install --global yarn
+    Reference : https://classic.yarnpkg.com/lang/en/docs/install/#windows-stable
 
-The project comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts. It also comes with a variety of other tools, preconfigured to work with the project code.
+install npx:
+    yarn global add npx
+    or
+    npm install -g npx   
 
-Try running some of the following tasks:
+install hardhat:
+    yarn --dev add hardhat
+    or
+    npm install --save-dev hardhat
+    
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-npx hardhat help
-REPORT_GAS=true npx hardhat test
-npx hardhat coverage
-npx hardhat run scripts/deploy.ts
-TS_NODE_FILES=true npx ts-node scripts/deploy.ts
-npx eslint '**/*.{js,ts}'
-npx eslint '**/*.{js,ts}' --fix
-npx prettier '**/*.{json,sol,md}' --check
-npx prettier '**/*.{json,sol,md}' --write
-npx solhint 'contracts/**/*.sol'
-npx solhint 'contracts/**/*.sol' --fix
-```
+# Project setup
+install dependencies:
+    Inside project folder install dependencies with following command
 
-# Etherscan verification
+    yarn install
 
-To try out Etherscan verification, you first need to deploy a contract to an Ethereum network that's supported by Etherscan, such as Ropsten.
+setup environment variables:
+    create .env file inside project and fill the content like following. Here PRIVATE_KEY is one of your MetaMask wallet address's private key. It's for deploying contract to chains.
 
-In this project, copy the .env.example file to a file named .env, and then edit it to fill in the details. Enter your Etherscan API key, your Ropsten node URL (eg from Alchemy), and the private key of the account which will send the deployment transaction. With a valid .env file in place, first deploy your contract:
+GANACHE_MNEMONIC="year year year year year year year year year year year year"
+PRIVATE_KEY="0xba34556666666666666666666666666666666666666666666666666666666e"
+ROPSTEN_URL="https://eth-ropsten.alchemyapi.io/v2/<YOUR ALCHEMY KEY>"
+ETHERSCAN_API_KEY="ABC123ABC123ABC123ABC123ABC123ABC1"
+    
+# Test
+    Inside project folder, run following command
 
-```shell
-hardhat run --network ropsten scripts/sample-script.ts
-```
+    npx hardhat test test/index.ts
 
-Then, copy the deployment address and paste it in to replace `DEPLOYED_CONTRACT_ADDRESS` in this command:
+# Deploy
+    At the moment, project is configured for 3 networks to be deployed.
+    Deploy with following command
 
-```shell
-npx hardhat verify --network ropsten DEPLOYED_CONTRACT_ADDRESS "Hello, Hardhat!"
-```
+    npx hardhat run scripts/deploy.ts --network <networkname>
 
-# Performance optimizations
+    <networkname> can be one of following:
+    bsctestnet
+    bscmainnet
+    cronosmainnet
 
-For faster runs of your tests and scripts, consider skipping ts-node's type checking by setting the environment variable `TS_NODE_TRANSPILE_ONLY` to `1` in hardhat's environment. For more details see [the documentation](https://hardhat.org/guides/typescript.html#performance-optimizations).
+    Example : Deploy to bsc testnet
+    npx hardhat run scripts/deploy.ts --network bsctestnet

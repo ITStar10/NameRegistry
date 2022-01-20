@@ -10,10 +10,7 @@ import "solidity-coverage";
 // For BSC verification after deploy
 import "@nomiclabs/hardhat-ethers"
 
-// const { privateKey, mnemonic } = require('/mnt/Work/Sec/ganache_secret.json');
-const { privateKey, mnemonic, apiKey } = require('/mnt/Work/Sec/mainnet_secret.json');
-
-dotenv.config();
+dotenv.config({path:__dirname+'/.env'});
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -36,26 +33,29 @@ const config: HardhatUserConfig = {
     localhost: {
       url: "http://127.0.0.1:8545",
       accounts: 
-      { mnemonic: mnemonic}
+      { mnemonic: process.env.GANACHE_MNEMONIC }
     },
     bsctestnet: {
       // url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
       url: "https://speedy-nodes-nyc.moralis.io/bd1c39d7c8ee1229b16b4a97/bsc/testnet",
       chainId: 97,
       gasPrice: 20000000000,
-      accounts: [privateKey]
+      accounts: 
+        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     bscmainnet: {
       url: "https://bsc-dataseed.binance.org/",
       chainId: 56,
       gasPrice: 20000000000,
-      accounts: [privateKey]
+      accounts: 
+        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     cronosmainnet: {
       url: "https://evm-cronos.crypto.org",
       chainId: 25,
       gasPrice: 20000000000,
-      accounts: [privateKey]
+      accounts: 
+        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     ropsten: {  
       url: process.env.ROPSTEN_URL || "",
@@ -68,7 +68,7 @@ const config: HardhatUserConfig = {
     currency: "USD",
   },
   etherscan: {
-    apiKey: apiKey,
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
   },
 };
 
