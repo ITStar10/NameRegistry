@@ -1,29 +1,35 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-contract NameRegistry is ReentrancyGuard {
+contract NameRegistry {
+
+    using EnumerableSet for EnumerableSet.Bytes32Set;
     /**
-     * note list to keep username & DIDs
-     * _nameInfoList : username => UserNameInfo
-     * _DIDToName : DID address => username
+     * note username to did
      */
-    mapping(string => UserNameInfo) private _nameInfoList;
-    mapping(address => string) private _DIDToName;
+    mapping(bytes32 => address) private _nameToDID;
 
-    /** note user need to fund ether to register. Will get  back when unregister.*/
-    uint256 private constant REGISTER_COST = 0.01 ether;
-    
-    /** @dev Info of username */
-    struct UserNameInfo {
+    /** 
+     * note DID to username list
+     */
+    mapping(address => DIDInfo) private _DIDInfoList;
+
+    /** 
+     * @dev DID Info 
+     * User can register multiple usernames to a DID.
+     * In case, caller of register() function should be identical. If not, 
+     * a user can register username to other's DID.
+     */
+    struct DIDInfo {
         address owner;
-        address dID;
-        uint256 fund;
+        EnumerableSet.Bytes32Set userNameList;
     }
 
-    event Register(string indexed name, address indexed DID);
-    event Unregister(string indexed name, address indexed DID);
+    event Register(bytes32 indexed name, address indexed DID);
+    event Unregister(bytes32 indexed name, address indexed DID);
 
     // Function to receive Ether. msg.data must be empty
     // receive() external payable {}
@@ -33,23 +39,22 @@ contract NameRegistry is ReentrancyGuard {
 
     /**
      * @dev register name & DID
-     * @param _name user name can be any string. Duplication not allowed
+     * @param _name user name is 32bytes string. It's a hash value. Duplication not allowed
      * @param _did DID address.
      */
-    function register(string memory _name, address _did) public payable {
-        require(msg.value >= REGISTER_COST, "Insufficient fund");
+    function register(bytes32 _name, address _did) public {
         require(_did != address(0x0), "Invalid zero address");
-        require(_nameInfoList[_name].dID == address(0x0), "Name already registered");
+        require(_nameToDID[_name] == address(0x0), "Name already registered");
+        
+        DIDInfo storage didInfo = _DIDInfoList[_did];
+        if (didInfo.owner != address(0x0)) {
+            // Meaning registered DID
+            require(msg.sender == didInfo.owner, "Not a DID owner");
+        }
 
-        bytes memory _didname = bytes(_DIDToName[_did]);
-        require(_didname.length == 0, "DID already registered");
-
-        _nameInfoList[_name] = UserNameInfo(
-            msg.sender,
-            _did,
-            msg.value
-        );
-        _DIDToName[_did] = _name;
+        _nameToDID[_name] = _did;
+        didInfo.owner = msg.sender;
+        didInfo.userNameList.add(_name);
 
         emit Register(_name, _did);
     }
@@ -58,21 +63,22 @@ contract NameRegistry is ReentrancyGuard {
      * @dev unregister name
      * @param _name user name. Must be registered before
      */
-    function unregister(string memory _name) public payable nonReentrant {
-        UserNameInfo memory info = _nameInfoList[_name];
+    function unregister(bytes32 _name) public {
+        address callerDID = _nameToDID[_name];
+        require(callerDID != address(0x0), "Unregistered name");
 
-        require(info.dID != address(0x0), "Unregistered name");
-        require(info.owner == msg.sender, "Not a owner");
-        
-        delete _DIDToName[info.dID];
-        delete _nameInfoList[_name];
+        DIDInfo storage didInfo = _DIDInfoList[callerDID];
+        require(didInfo.owner == msg.sender, "Not a owner");
 
-        if (info.fund > 0) {
-            (bool success,) = msg.sender.call{value:info.fund}(new bytes(0));
-            require(success, "Sending fund back failed");
+        delete _nameToDID[_name];
+        didInfo.userNameList.remove(_name);
+
+        // Optional
+        if (didInfo.userNameList.length() == 0) {
+            didInfo.owner = address(0x0);
         }
-        
-        emit Unregister(_name, info.dID);
+
+        emit Unregister(_name, callerDID);
     }
 
     /**
@@ -80,11 +86,14 @@ contract NameRegistry is ReentrancyGuard {
      * @param _name user name. Must be registered
      * @return DID address of user
      */
-    function findDid(string memory _name) external view returns(address) {
-        UserNameInfo storage info = _nameInfoList[_name];
-        require(info.dID != address(0x0), "Unregistered name");
-        require(info.owner == msg.sender, "Not a owner");
-        return info.dID;
+    function findDid(bytes32 _name) external view returns(address) {
+        address callerDID = _nameToDID[_name];
+        require(callerDID != address(0x0), "Unregistered name");
+
+        DIDInfo storage didInfo = _DIDInfoList[callerDID];
+        require(didInfo.owner == msg.sender, "Not a owner");
+
+        return callerDID;
     }
 
     /**
@@ -92,12 +101,20 @@ contract NameRegistry is ReentrancyGuard {
      * @param _did Must be registered before.
      * @return name
      */
-    function findName(address _did) external view returns(string memory) {
-        bytes memory _name = bytes(_DIDToName[_did]);
-        require(_name.length != 0, "Unregistered DID");
-        UserNameInfo storage info = _nameInfoList[_DIDToName[_did]];
-        require(info.owner == msg.sender, "Not a owner");
-        return _DIDToName[_did];
+    function getUserNameList(address _did) external view returns(bytes32[] memory) {
+        DIDInfo storage didInfo = _DIDInfoList[_did];
+        require(didInfo.owner == msg.sender, "Not a owner");
+
+        uint256 length = didInfo.userNameList.length();
+        require(length > 0, "No registered DID");
+
+        bytes32[] memory userNameList = new bytes32[](length);
+
+        for (uint i = 0; i < length; i++) {
+            userNameList[i] = didInfo.userNameList.at(i);
+        }
+
+        return userNameList;
     }
 
 }
